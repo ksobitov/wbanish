@@ -13,9 +13,10 @@ Some compositors can already do this on their own, and if yours can, use that:
 | niri | `cursor { hide-when-typing }` |
 | KDE Plasma 6.2+ | the *Hide Cursor* desktop effect |
 
-wbanish is for the others, such as river, labwc, Wayfire, COSMIC and older
+wbanish is for the others: GNOME, river, labwc, Wayfire, COSMIC and older
 Plasma.
-It needs `wlr-layer-shell`, so it does not work on GNOME or Weston.
+On GNOME it uses a small GNOME Shell extension that comes with it; elsewhere
+it needs `wlr-layer-shell`, so it does not work on Weston.
 
 ## Usage
 
@@ -81,6 +82,10 @@ Then log out and back in.
 Note that any program in that group can read every key you type; wbanish
 itself only looks at keys to track modifiers and never stores or prints them.
 
+On GNOME 46 or later, wbanish enables its extension by itself; if you
+installed it during the current session, log out and back in once so
+GNOME Shell finds the extension.
+
 Start it from your compositor's autostart, for example in labwc's
 `~/.config/labwc/autostart`:
 
@@ -106,6 +111,12 @@ These pointer events come from the compositor after libinput, so touchpad
 palm rejection and disable-while-typing still apply: a palm resting on the
 touchpad won't bring the cursor back.
 
+GNOME has no `wlr-layer-shell`, so there wbanish asks its GNOME Shell
+extension, `wbanish@ksobitov.github.io`, to hide the cursor, over the
+`$XDG_RUNTIME_DIR/wbanish.sock` socket.
+The extension hides it inside GNOME Shell and shows it again when the
+pointer moves; clicks and scrolling reach the window underneath as usual.
+
 Keyboards are read from evdev because a Wayland client can't see keys typed
 into other clients.
 Mice and touchpads are only opened with `-t`, to know when they were last
@@ -113,16 +124,17 @@ used.
 
 ## Differences from xbanish
 
-- A click or scroll that brings the cursor back is not passed on to the
-  window underneath, because it lands on wbanish's overlay. This rarely
-  matters because you usually move the mouse to find the cursor before
-  clicking.
+- Outside GNOME, a click or scroll that brings the cursor back is not
+  passed on to the window underneath, because it lands on wbanish's
+  overlay. This rarely matters because you usually move the mouse to find
+  the cursor before clicking. On GNOME, clicks go through, but only moving
+  the mouse brings the cursor back.
 - While the cursor is hidden, the window underneath gets a pointer leave
   event, so hover effects and tooltips go away.
 - xbanish's `-a` (always hide) would block the mouse completely, `-m` needs
   pointer warping that Wayland doesn't allow, and `-s` would swallow the
   scroll, so wbanish doesn't have them.
-- Games that lock the pointer lose that lock while the overlay is up; pause
-  wbanish with `SIGUSR1` while playing.
+- Outside GNOME, games that lock the pointer lose that lock while the
+  overlay is up; pause wbanish with `SIGUSR1` while playing.
 - Modifiers are tracked by key code, not through the keymap, so right Alt
   counts as both `alt` and `altgr`.

@@ -19,11 +19,50 @@ macro_rules! debug {
     };
 }
 
+mod gnome;
 mod input;
 mod overlay;
 
+use gnome::Gnome;
 use input::{Activity, Input, Mods};
 use overlay::Overlay;
+
+/// How the cursor gets hidden: our own overlay where the compositor has
+/// wlr-layer-shell, or the Shell extension on GNOME.
+enum Hider {
+    Overlay(Box<Overlay>),
+    Gnome(Gnome),
+}
+
+impl Hider {
+    fn hide(&mut self) {
+        match self {
+            Hider::Overlay(o) => o.hide(),
+            Hider::Gnome(g) => g.hide(),
+        }
+    }
+
+    fn show(&mut self) {
+        match self {
+            Hider::Overlay(o) => o.show(),
+            Hider::Gnome(g) => g.show(),
+        }
+    }
+
+    fn is_hidden(&self) -> bool {
+        match self {
+            Hider::Overlay(o) => o.is_hidden(),
+            Hider::Gnome(g) => g.is_hidden(),
+        }
+    }
+
+    /// The mouse was used, as seen on evdev.
+    fn pointer_moved(&mut self) {
+        if let Hider::Gnome(g) = self {
+            g.pointer_moved();
+        }
+    }
+}
 
 const USAGE: &str = "usage: wbanish [-d] [-i modifier]... [-t seconds]";
 
@@ -102,7 +141,11 @@ fn main() -> ExitCode {
 }
 
 fn run(opts: &Options) -> Result<(), Box<dyn Error>> {
-    let mut wl = Overlay::connect()?;
+    let mut hider = if gnome::is_session() {
+        Hider::Gnome(Gnome::connect()?)
+    } else {
+        Hider::Overlay(Box::new(Overlay::connect()?))
+    };
     let mut input = Input::open(opts.timeout.is_some(), opts.ignore)?;
 
     // SIGUSR1 pauses and resumes, e.g. for games.
@@ -113,27 +156,31 @@ fn run(opts: &Options) -> Result<(), Box<dyn Error>> {
 
     let mut last_pointer = Instant::now();
     loop {
-        // Dispatch whatever is queued; pointer events may show the cursor.
-        let guard = loop {
-            wl.dispatch_pending()?;
-            if wl.take_pointer_activity() {
-                last_pointer = Instant::now();
-            }
-            wl.flush()?;
-            if let Some(g) = wl.prepare_read() {
-                break g;
-            }
+        // Dispatch whatever Wayland has queued; pointer events on the
+        // overlay may show the cursor.
+        let guard = match &mut hider {
+            Hider::Overlay(wl) => Some(loop {
+                wl.dispatch_pending()?;
+                if wl.take_pointer_activity() {
+                    last_pointer = Instant::now();
+                }
+                wl.flush()?;
+                if let Some(g) = wl.prepare_read() {
+                    break g;
+                }
+            }),
+            Hider::Gnome(_) => None,
         };
 
         let mut timeout = None;
         if let Some(t) = opts.timeout
             && !paused
-            && !wl.is_hidden()
+            && !hider.is_hidden()
         {
             let idle = last_pointer.elapsed();
             if idle >= t {
                 debug!("no mouse activity for {:.1}s", idle.as_secs_f64());
-                wl.hide();
+                hider.hide();
                 drop(guard);
                 continue;
             }
@@ -141,16 +188,18 @@ fn run(opts: &Options) -> Result<(), Box<dyn Error>> {
         }
 
         // Fixed slots first, then one per input device.
-        const WAYLAND: usize = 0;
-        const SIGNAL: usize = 1;
-        const INOTIFY: usize = 2;
-        const DEVICES: usize = 3;
+        const SIGNAL: usize = 0;
+        const INOTIFY: usize = 1;
+        const WAYLAND: usize = 2;
+        let devices = WAYLAND + usize::from(guard.is_some());
         let revents: Vec<PollFlags> = {
             let mut fds = vec![
-                PollFd::from_borrowed_fd(guard.connection_fd(), PollFlags::IN),
                 PollFd::new(&sig_rx, PollFlags::IN),
                 PollFd::from_borrowed_fd(input.inotify_fd(), PollFlags::IN),
             ];
+            if let Some(g) = &guard {
+                fds.push(PollFd::from_borrowed_fd(g.connection_fd(), PollFlags::IN));
+            }
             for i in 0..input.len() {
                 fds.push(PollFd::from_borrowed_fd(input.device_fd(i), PollFlags::IN));
             }
@@ -162,10 +211,12 @@ fn run(opts: &Options) -> Result<(), Box<dyn Error>> {
             fds.iter().map(|f| f.revents()).collect()
         };
 
-        if revents[WAYLAND].is_empty() {
-            drop(guard);
-        } else {
-            guard.read()?;
+        if let Some(g) = guard {
+            if revents[WAYLAND].is_empty() {
+                drop(g);
+            } else {
+                g.read()?;
+            }
         }
 
         if !revents[SIGNAL].is_empty() {
@@ -174,21 +225,24 @@ fn run(opts: &Options) -> Result<(), Box<dyn Error>> {
             paused = !paused;
             eprintln!("wbanish: {}", if paused { "paused" } else { "resumed" });
             if paused {
-                wl.show();
+                hider.show();
             }
             last_pointer = Instant::now();
         }
 
         // Read devices back to front so removing one keeps the others' indices.
         for i in (0..input.len()).rev() {
-            let flags = revents[DEVICES + i];
+            let flags = revents[devices + i];
             if flags.is_empty() {
                 continue;
             }
             let alive = input.read(i, &mut |a| match a {
-                Activity::Key if !paused => wl.hide(),
+                Activity::Key if !paused => hider.hide(),
                 Activity::Key => {}
-                Activity::Pointer => last_pointer = Instant::now(),
+                Activity::Pointer => {
+                    last_pointer = Instant::now();
+                    hider.pointer_moved();
+                }
             });
             if !alive || flags.intersects(PollFlags::ERR | PollFlags::HUP) {
                 input.remove(i);

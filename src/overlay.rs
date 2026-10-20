@@ -101,7 +101,7 @@ impl Overlay {
             globals.bind(&qh, 1..=4, ()).map_err(|_| "compositor has no wl_compositor")?;
         let shm = globals.bind(&qh, 1..=1, ()).map_err(|_| "compositor has no wl_shm")?;
         let layer_shell = globals.bind(&qh, 1..=4, ()).map_err(|_| {
-            "compositor doesn't support wlr-layer-shell (GNOME and Weston don't), \
+            "compositor doesn't support wlr-layer-shell (Weston doesn't), \
              so the cursor can't be hidden"
         })?;
         let viewporter = globals.bind(&qh, 1..=1, ()).ok();

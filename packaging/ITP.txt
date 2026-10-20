@@ -7,7 +7,7 @@ Owner: Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>
 X-Debbugs-Cc: debian-devel@lists.debian.org, debian-rust@lists.debian.org
 
 * Package name    : wbanish
-  Version         : 0.1.0
+  Version         : 0.2.0
   Upstream Contact: Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>
 * URL             : https://github.com/ksobitov/wbanish
 * License         : MIT
@@ -18,13 +18,15 @@ wbanish hides the mouse cursor when a key is pressed, and shows it again
 when the mouse is moved, a button is pressed or the wheel is scrolled. It
 is a Wayland counterpart of xbanish.
 
-It needs a compositor that implements the wlr-layer-shell protocol, such as
-labwc, river, Wayfire or KDE Plasma; it does not work on GNOME. Keyboards
-are read from /dev/input, so the user has to be in the "input" group.
+On GNOME it hides the cursor through the GNOME Shell extension that comes
+with it; elsewhere it needs a compositor that implements the wlr-layer-shell
+protocol, such as labwc, river, Wayfire or KDE Plasma. Keyboards are read
+from /dev/input, so the user has to be in the "input" group.
 
 Debian already has xbanish, unclutter and unclutter-xfixes, but all three
 only work on X11. A few compositors (Sway, Hyprland, niri, Plasma 6.2+) can
-hide the cursor while typing themselves; wbanish covers the others.
+hide the cursor while typing themselves; wbanish covers the others,
+including GNOME, which has no such setting.
 
 All build dependencies are already in unstable. I am the upstream author
 and plan to maintain the package within the Debian Rust Team
