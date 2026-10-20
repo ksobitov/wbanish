@@ -1,0 +1,8 @@
+{
+  "uuid": "wbanish-legacy@ksobitov.github.io",
+  "name": "wbanish (GNOME 42-44)",
+  "description": "Lets wbanish hide the mouse cursor while you type. The cursor comes back as soon as the mouse is used. It also works on the lock screen, where you type your password.",
+  "shell-version": ["42", "43", "44"],
+  "session-modes": ["user", "unlock-dialog"],
+  "url": "https://github.com/ksobitov/wbanish"
+}

@@ -5,3 +5,5 @@ Comment=Hide the mouse cursor while typing
 Exec=wbanish
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
+# These hide the cursor while typing by themselves.
+NotShowIn=sway;Hyprland;niri;

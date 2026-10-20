@@ -13,10 +13,10 @@ Some compositors can already do this on their own, and if yours can, use that:
 | niri | `cursor { hide-when-typing }` |
 | KDE Plasma 6.2+ | the *Hide Cursor* desktop effect |
 
-wbanish is for the others: GNOME, river, labwc, Wayfire, COSMIC and older
-Plasma.
-On GNOME it uses a small GNOME Shell extension that comes with it; elsewhere
-it needs `wlr-layer-shell`, so it does not work on Weston.
+wbanish is for the others: GNOME 42 and later, labwc, river, Wayfire, COSMIC
+and older Plasma.
+On GNOME it works through a small GNOME Shell extension that comes with it;
+elsewhere the compositor needs `wlr-layer-shell`, so Weston can't be used.
 
 ## Usage
 
@@ -31,6 +31,7 @@ wbanish [-d] [-i modifier]... [-t seconds]
   every held modifier but not the locks. Repeat it to ignore several.
 - `-t seconds` also hides the cursor after this many seconds without mouse
   activity.
+- `-h` or `--help` shows a summary, `-V` or `--version` the version.
 
 Sending `SIGUSR1` pauses wbanish and sending it again resumes it, which is
 handy for games:
@@ -40,7 +41,8 @@ pkill -USR1 wbanish
 ```
 
 Pressing a modifier key alone never hides the cursor, so Ctrl+click and
-Super+drag keep working.
+Super+drag keep working, and neither does holding a key down while you use
+the mouse.
 
 ## Installation
 
@@ -50,6 +52,7 @@ On Debian 12+ and Ubuntu 22.04+, add the APT repository once:
 sudo apt install -y curl
 sudo install -d -m 0755 /etc/apt/keyrings
 sudo curl -fsSLo /etc/apt/keyrings/wbanish.asc https://ksobitov.github.io/wbanish/wbanish.asc
+sudo chmod 644 /etc/apt/keyrings/wbanish.asc
 sudo tee /etc/apt/sources.list.d/wbanish.sources <<EOF
 Types: deb
 URIs: https://ksobitov.github.io/wbanish
@@ -61,6 +64,9 @@ sudo apt update
 sudo apt install wbanish
 ```
 
+The repository is signed with the key
+`035B 17F4 3B9A A0B0 25D2  4DE5 DA38 B63C 9450 3CEB`;
+`gpg --show-keys /etc/apt/keyrings/wbanish.asc` shows the one you downloaded.
 Updates then come with `apt upgrade`.
 The packages are also attached to each
 [GitHub release](https://github.com/ksobitov/wbanish/releases).
@@ -71,13 +77,20 @@ Elsewhere, build it with Cargo:
 cargo install --git https://github.com/ksobitov/wbanish
 ```
 
-On GNOME 46 or later, nothing else is needed: wbanish enables its GNOME
-Shell extension by itself, and the extension sees your key presses.
-GNOME Shell only looks for new extensions when you log in, though, so after
-installing wbanish for the first time, log out and back in once.
+### GNOME
 
-Elsewhere, wbanish reads keyboards from `/dev/input/event*`, so you have to
-be in the `input` group:
+Nothing else is needed: wbanish enables its GNOME Shell extension by itself,
+and the extension sees your key presses, so there is no group to join.
+GNOME Shell only looks for new extensions when you log in, though, so log out
+and back in once after installing wbanish, and again after an upgrade if
+wbanish says the running extension is older than itself.
+A wbanish built with Cargo puts the extension in
+`~/.local/share/gnome-shell/extensions` the first time it runs.
+
+### Other desktops
+
+wbanish reads keyboards from `/dev/input/event*`, so you have to be in the
+`input` group:
 
 ```sh
 sudo usermod -aG input $USER
@@ -87,11 +100,15 @@ Then log out and back in.
 Note that any program in that group can read every key you type; wbanish
 itself only looks at keys to track modifiers and never stores or prints them.
 
+### Starting it
+
 The package starts wbanish whenever you log in, through
 `/etc/xdg/autostart/wbanish.desktop`, on desktops that follow the XDG
-autostart convention, such as GNOME and KDE Plasma.
+autostart convention, such as GNOME and KDE Plasma; it skips Sway, Hyprland
+and niri, which have the feature built in.
 To pass options, or to turn that off, copy the file to
-`~/.config/autostart/` and change its `Exec=` line, or add `Hidden=true`.
+`~/.config/autostart/` and change its `Exec=` line, or add `Hidden=true`;
+the change applies from the next login.
 Elsewhere, start it from your compositor's autostart, for example in labwc's
 `~/.config/labwc/autostart`:
 
@@ -100,6 +117,28 @@ wbanish &
 ```
 
 Only one wbanish runs at a time; another one exits right away.
+To restart it with other options, stop the running one first with
+`pkill wbanish`.
+
+### Checking and troubleshooting
+
+`pgrep -a wbanish` shows whether it runs.
+Running `wbanish -d` in a terminal (after `pkill wbanish`) prints what it
+does, and why when it can't.
+On GNOME, the autostarted wbanish's messages are in
+`journalctl --user -u app-wbanish@autostart.service`.
+
+### Uninstalling
+
+```sh
+sudo apt purge wbanish
+sudo rm /etc/apt/sources.list.d/wbanish.sources /etc/apt/keyrings/wbanish.asc
+```
+
+`apt remove` instead of `apt purge` leaves the autostart file behind, as
+Debian does with configuration files.
+For a Cargo build, also remove
+`~/.local/share/gnome-shell/extensions/wbanish@ksobitov.github.io`.
 
 ## How it works
 
@@ -109,6 +148,9 @@ A client can only set the cursor for its own surfaces, so when a key is
 pressed wbanish puts a transparent, full-screen surface on the topmost
 layer of every output and sets an empty cursor when the pointer enters it.
 Keyboard focus stays with the window you are typing in.
+Compositors that don't give pointer focus to a surface appearing under a
+still pointer (sway 1.10 and later) get a pointer nudge of zero pixels
+through a virtual pointer, which makes them do it.
 
 The first motion, button press or scroll on that surface removes it.
 Before removing it, wbanish sets the default cursor shape
@@ -118,35 +160,44 @@ that only give the pointer back to the window underneath on the next motion.
 These pointer events come from the compositor after libinput, so touchpad
 palm rejection and disable-while-typing still apply: a palm resting on the
 touchpad won't bring the cursor back.
+Keyboards are read from evdev because a Wayland client can't see keys typed
+into other clients.
+Mice and touchpads are only opened with `-t`, to know when they were last
+used.
 
 GNOME has neither `wlr-layer-shell` nor any way for a client to see keys
 typed into other clients, so there the work happens in wbanish's GNOME Shell
-extension, `wbanish@ksobitov.github.io`.
+extension, `wbanish@ksobitov.github.io` (`wbanish-legacy@ksobitov.github.io`
+on GNOME 42 to 44).
 wbanish starts it with its options over `$XDG_RUNTIME_DIR/wbanish.sock` and
-keeps that connection open; the extension stops when wbanish exits.
-It notices key presses through Mutter's idle monitor, which sees every
-event before it reaches the focused window, hides the cursor inside GNOME
-Shell, and shows it again when the pointer moves.
-Clicks and scrolling reach the window underneath as usual.
-
-Outside GNOME, keyboards are read from evdev because a Wayland client
-can't see keys typed into other clients.
-Mice and touchpads are only opened with `-t`, to know when they were last
-used.
+keeps that connection open; the extension stops when wbanish exits, and
+wbanish reconnects when GNOME switches the extension off and on again.
+The extension notices key presses through Mutter's idle monitor, which sees
+every event before it reaches a window, hides the cursor inside GNOME Shell,
+and shows it again on the next pointer event, early enough for that click or
+scroll to reach the window.
+It keeps working on the lock screen, where you type your password.
 
 ## Differences from xbanish
 
 - Outside GNOME, a click or scroll that brings the cursor back is not
   passed on to the window underneath, because it lands on wbanish's
   overlay. This rarely matters because you usually move the mouse to find
-  the cursor before clicking. On GNOME, clicks go through, but only moving
-  the mouse brings the cursor back.
+  the cursor before clicking.
 - While the cursor is hidden, the window underneath gets a pointer leave
-  event, so hover effects and tooltips go away.
+  event, so hover effects and tooltips go away, and a menu that is open
+  when you type may close.
+- On Sway with `focus_follows_mouse`, the first motion after typing can move
+  the keyboard focus to the window under the pointer. Use Sway's own
+  `hide_cursor when-typing` there.
+- Games that lock the pointer lose that lock when wbanish hides the cursor;
+  pause wbanish with `SIGUSR1` while playing.
 - xbanish's `-a` (always hide) would block the mouse completely, `-m` needs
   pointer warping that Wayland doesn't allow, and `-s` would swallow the
   scroll, so wbanish doesn't have them.
-- Outside GNOME, games that lock the pointer lose that lock while the
-  overlay is up; pause wbanish with `SIGUSR1` while playing.
-- Modifiers are tracked by key code, not through the keymap, so right Alt
-  counts as both `alt` and `altgr`.
+- On GNOME, keys that an input method such as IBus Pinyin takes for itself
+  don't hide the cursor.
+- Compositors without `wp-cursor-shape-v1`, such as Debian 12's Sway, may
+  only bring the cursor back on the second motion.
+- Outside GNOME, modifiers are tracked by key code, not through the keymap,
+  so right Alt counts as both `alt` and `altgr`.

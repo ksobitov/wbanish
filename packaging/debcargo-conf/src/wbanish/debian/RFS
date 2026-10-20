@@ -1,4 +1,4 @@
-wbanish 0.3.0: new package, ITP #NNNNNN
+wbanish 0.4.0: new package, ITP #NNNNNN
 
 wbanish hides the mouse cursor while typing on Wayland, like xbanish does
 on X11. It is a binary-only crate; the binary package is "wbanish".
@@ -11,6 +11,7 @@ wayland-protocols-wlr 0.3.12.
 Test-built with debcargo 2.8.4 and dpkg-buildpackage in a clean unstable
 container, using only Debian's librust-*-dev packages; the package builds,
 installs and runs. The binary package also ships the GNOME Shell
-extension that wbanish uses on GNOME.
+extensions that wbanish uses on GNOME (one for GNOME 42-44, one for 45 and
+later) and an XDG autostart file.
 
 I am the upstream author and would appreciate a review and a sponsor.

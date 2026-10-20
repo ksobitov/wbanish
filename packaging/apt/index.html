@@ -19,6 +19,7 @@ Source and documentation: <a href="https://github.com/ksobitov/wbanish">github.c
 <pre>sudo apt install -y curl
 sudo install -d -m 0755 /etc/apt/keyrings
 sudo curl -fsSLo /etc/apt/keyrings/wbanish.asc https://ksobitov.github.io/wbanish/wbanish.asc
+sudo chmod 644 /etc/apt/keyrings/wbanish.asc
 sudo tee /etc/apt/sources.list.d/wbanish.sources &lt;&lt;EOF
 Types: deb
 URIs: https://ksobitov.github.io/wbanish
@@ -29,8 +30,13 @@ EOF
 sudo apt update
 sudo apt install wbanish</pre>
 
-<p>wbanish reads keyboards from <code>/dev/input</code>, so add yourself to the
-<code>input</code> group and log in again:</p>
+<p>The repository is signed with the key
+<code>035B 17F4 3B9A A0B0 25D2 4DE5 DA38 B63C 9450 3CEB</code>.</p>
+
+<p>On GNOME, log out and back in once after installing, so that GNOME Shell
+finds wbanish's extension. On other desktops, wbanish reads keyboards from
+<code>/dev/input</code>, so add yourself to the <code>input</code> group and
+log in again:</p>
 <pre>sudo usermod -aG input $USER</pre>
 </body>
 </html>

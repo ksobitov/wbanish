@@ -1,4 +1,4 @@
-.Dd $Mdocdate: October 20 2026$
+.Dd October 20, 2026
 .Dt WBANISH 1
 .Os
 .Sh NAME
@@ -9,24 +9,36 @@
 .Op Fl d
 .Op Fl i Ar modifier
 .Op Fl t Ar seconds
+.Nm
+.Fl h | Fl V
 .Sh DESCRIPTION
 .Nm
 hides the mouse cursor when a key is pressed.
 The cursor is shown again when the mouse is moved, a button is pressed or
 the wheel is scrolled.
-Pressing a modifier key on its own does not hide the cursor.
+Pressing a modifier key on its own does not hide the cursor, and neither
+does a key that is held down and repeating.
 .Pp
 On GNOME,
 .Nm
-hides the cursor through its GNOME Shell extension,
-.Ic wbanish@ksobitov.github.io ,
+works through its GNOME Shell extension,
+.Ic wbanish@ksobitov.github.io
+.Po
+.Ic wbanish-legacy@ksobitov.github.io
+on GNOME 42 to 44
+.Pc ,
 which it enables by itself and which also notices the key presses.
+GNOME Shell only finds a newly installed extension at login.
 Elsewhere the compositor must support the wlr-layer-shell protocol, and
 the user must be able to read the keyboards in
 .Pa /dev/input ,
 usually by being in the
 .Ic input
 group.
+.Pp
+Only one
+.Nm
+runs at a time.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl d
@@ -63,6 +75,10 @@ May be given more than once.
 Hide the mouse cursor after
 .Ar seconds
 have passed without mouse activity.
+.It Fl h , Fl Fl help
+Show a summary of the options.
+.It Fl V , Fl Fl version
+Show the version.
 .El
 .Sh SIGNALS
 .Bl -tag -width Ds
@@ -76,10 +92,15 @@ While paused the cursor is never hidden.
 Starts
 .Nm
 when you log in.
+Copy it to
+.Pa ~/.config/autostart/
+to change its options or turn it off.
 .It Pa $XDG_RUNTIME_DIR/wbanish.lock
 Keeps a second
 .Nm
 from running.
+.It Pa $XDG_RUNTIME_DIR/wbanish.sock
+Where the GNOME Shell extension listens.
 .El
 .Sh SEE ALSO
 .Xr xbanish 1
@@ -89,3 +110,7 @@ Outside GNOME,
 hides the cursor by covering every output with a transparent surface.
 A click or scroll that brings the cursor back is therefore not passed on to
 the window underneath.
+On every desktop, the window under a hidden cursor loses the pointer, so
+hover effects go away and games lose their pointer lock; pause
+.Nm
+while playing.

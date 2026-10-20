@@ -131,8 +131,9 @@ fn classify(ty: EventType, code: u16, value: i32) -> Option<Event> {
             } else if is_pointer_button(code) {
                 (value == 1).then_some(Event::Pointer)
             } else {
-                // value 0 is a release, 2 an autorepeat.
-                (value != 0 && is_keyboard_key(code)).then_some(Event::Key)
+                // value 0 is a release, 2 an autorepeat.  A held key must
+                // not keep hiding the cursor while the mouse is in use.
+                (value == 1 && is_keyboard_key(code)).then_some(Event::Key)
             }
         }
         EventType::RELATIVE => {
@@ -312,7 +313,8 @@ impl Input {
             Event::Key => {
                 let mut active = self.devices.iter().fold(Mods::default(), |a, d| a | d.mods);
                 if self.ignore.intersects(Mods::LOCKS) {
-                    active |= self.devices[i].locks();
+                    // Lock state is shared, but only keyboards with LEDs show it.
+                    active |= self.devices.iter().fold(Mods::default(), |a, d| a | d.locks());
                 }
                 if self.ignore.intersects(active) {
                     debug!("ignoring key pressed with an ignored modifier");
@@ -444,7 +446,7 @@ mod tests {
     fn events() {
         let key = |code: KeyCode, value| classify(EventType::KEY, code.code(), value);
         assert_eq!(key(KeyCode::KEY_A, 1), Some(Event::Key));
-        assert_eq!(key(KeyCode::KEY_A, 2), Some(Event::Key));
+        assert_eq!(key(KeyCode::KEY_A, 2), None);
         assert_eq!(key(KeyCode::KEY_A, 0), None);
         assert_eq!(key(KeyCode::KEY_LEFTCTRL, 1), Some(Event::Modifier(Mods::CONTROL, true)));
         assert_eq!(key(KeyCode::KEY_LEFTCTRL, 0), Some(Event::Modifier(Mods::CONTROL, false)));

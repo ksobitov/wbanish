@@ -1,2 +1,3 @@
 gnome-extension/wbanish@ksobitov.github.io usr/share/gnome-shell/extensions/
+gnome-extension/wbanish-legacy@ksobitov.github.io usr/share/gnome-shell/extensions/
 wbanish.desktop etc/xdg/autostart/

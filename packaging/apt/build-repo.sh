@@ -3,14 +3,20 @@
 #
 # usage: build-repo.sh DEB_DIR OUT_DIR
 #
-# Signs with the default key in gpg's keyring and exports its public half
-# as wbanish.asc next to the repository.
+# Signs with the first secret key in gpg's keyring and exports its public
+# half as wbanish.asc next to the repository.
 set -eu
 
 debs=$1
 out=$2
 here=$(cd "$(dirname "$0")" && pwd)
 archs="amd64 arm64"
+
+key=$(gpg --batch --with-colons --list-secret-keys | awk -F: '$1 == "fpr" { print $10; exit }')
+if [ -z "$key" ]; then
+	echo "build-repo.sh: no secret key to sign with" >&2
+	exit 1
+fi
 
 mkdir -p "$out/pool/main"
 cp "$debs"/*.deb "$out/pool/main/"
@@ -34,8 +40,8 @@ apt-ftparchive \
 	release dists/stable > Release.new
 mv Release.new dists/stable/Release
 
-gpg --batch --yes --armor --detach-sign -o dists/stable/Release.gpg dists/stable/Release
-gpg --batch --yes --clearsign -o dists/stable/InRelease dists/stable/Release
-gpg --armor --export > wbanish.asc
+gpg --batch --yes --local-user "$key" --armor --detach-sign -o dists/stable/Release.gpg dists/stable/Release
+gpg --batch --yes --local-user "$key" --clearsign -o dists/stable/InRelease dists/stable/Release
+gpg --armor --export "$key" > wbanish.asc
 
 cp "$here/index.html" index.html

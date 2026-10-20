@@ -1,6 +1,6 @@
 [package]
 name = "wbanish"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Hide the mouse cursor while typing on Wayland, like xbanish"
@@ -26,6 +26,7 @@ copyright = "2026 Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>"
 license-file = ["LICENSE", "0"]
 section = "utils"
 depends = "$auto"
+changelog = "packaging/changelog"
 extended-description = """\
 wbanish hides the mouse cursor when a key is pressed, and shows it again \
 when the mouse is moved, a button is pressed or the wheel is scrolled. \
@@ -36,8 +37,10 @@ assets = [
     ["target/release/wbanish", "usr/bin/", "755"],
     ["wbanish.1", "usr/share/man/man1/", "644"],
     ["README.md", "usr/share/doc/wbanish/", "644"],
+    ["packaging/lintian-overrides", "usr/share/lintian/overrides/wbanish", "644"],
     ["wbanish.desktop", "etc/xdg/autostart/", "644"],
     ["gnome-extension/wbanish@ksobitov.github.io/*", "usr/share/gnome-shell/extensions/wbanish@ksobitov.github.io/", "644"],
+    ["gnome-extension/wbanish-legacy@ksobitov.github.io/*", "usr/share/gnome-shell/extensions/wbanish-legacy@ksobitov.github.io/", "644"],
 ]
 
 [profile.release]

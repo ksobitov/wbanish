@@ -1,0 +1,43 @@
+wbanish (0.4.0-1) stable; urgency=medium
+
+  * GNOME: keep working after the screen locks, and when GNOME switches the
+    extension off and on again; wbanish waits for it instead of exiting.
+  * GNOME: a click or scroll while the cursor is hidden shows it again and
+    reaches the window, which keeps the pointer while the cursor is hidden.
+  * GNOME: support GNOME 42 to 45, explain why the extension isn't running,
+    and install the extension when wbanish was built without the package.
+  * GNOME: -t counts only mouse activity, also during video playback.
+  * GNOME: Alt+Shift and other layout switching don't hide the cursor.
+  * Don't hide the cursor again for a held key's autorepeat.
+  * sway 1.10+: nudge the pointer so that the overlay gets pointer focus.
+  * Overlay: remove it when a clicked button is released, not pressed.
+  * Don't exit on a Wayland read that dispatches nothing.
+  * Refuse X11 sessions, and take --help and --version.
+  * Don't start at login on sway, Hyprland and niri, which have this built in.
+
+ -- Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>  Tue, 20 Oct 2026 15:00:00 +0500
+
+wbanish (0.3.0-1) stable; urgency=medium
+
+  * Start at login through XDG autostart, and run only once.
+
+ -- Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>  Tue, 20 Oct 2026 12:31:46 +0500
+
+wbanish (0.2.1-1) stable; urgency=medium
+
+  * GNOME: notice key presses inside the GNOME Shell extension, so that no
+    input group is needed, and notice an outdated extension.
+
+ -- Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>  Tue, 20 Oct 2026 12:23:20 +0500
+
+wbanish (0.2.0-1) stable; urgency=medium
+
+  * Hide the cursor on GNOME through a bundled GNOME Shell extension.
+
+ -- Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>  Tue, 20 Oct 2026 12:12:37 +0500
+
+wbanish (0.1.0-1) stable; urgency=medium
+
+  * Initial release.
+
+ -- Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>  Tue, 20 Oct 2026 11:28:07 +0500

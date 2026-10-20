@@ -12,12 +12,23 @@
 //! cursor is then visible right away and the client underneath replaces it
 //! on the next motion.
 //!
+//! Some compositors (sway 1.10 and later) don't give pointer focus to a
+//! surface that appears under a still pointer, so after mapping the overlay we
+//! nudge the pointer by nothing through a virtual pointer, where the
+//! compositor offers one.
+//!
+//! A click on the overlay shows the cursor at once, but the overlay stays
+//! until the button is released, so the window underneath doesn't get a
+//! release without a press.
+//!
 //! Pointer events on the overlay come from the compositor after libinput has
 //! processed them, so palm rejection and disable-while-typing on touchpads
 //! keep working: a resting palm will not bring the cursor back.
 
 use std::error::Error;
+use std::fmt;
 use std::os::fd::AsFd;
+use std::time::Instant;
 
 use rustix::fs::{MemfdFlags, ftruncate, memfd_create};
 use wayland_client::backend::ReadEventsGuard;
@@ -32,11 +43,28 @@ use wayland_protocols::wp::cursor_shape::v1::client::{
 };
 use wayland_protocols::wp::viewporter::client::{wp_viewport, wp_viewporter};
 use wayland_protocols_wlr::layer_shell::v1::client::{zwlr_layer_shell_v1, zwlr_layer_surface_v1};
+use wayland_protocols_wlr::virtual_pointer::v1::client::{
+    zwlr_virtual_pointer_manager_v1, zwlr_virtual_pointer_v1,
+};
 
 use wp_cursor_shape_device_v1::{Shape, WpCursorShapeDeviceV1};
 use wp_cursor_shape_manager_v1::WpCursorShapeManagerV1;
 use zwlr_layer_shell_v1::{Layer, ZwlrLayerShellV1};
 use zwlr_layer_surface_v1::{Anchor, KeyboardInteractivity, ZwlrLayerSurfaceV1};
+use zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1;
+use zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
+
+/// The compositor has no wlr-layer-shell, so we can't hide the cursor here.
+#[derive(Debug)]
+pub struct NoLayerShell;
+
+impl fmt::Display for NoLayerShell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("the compositor doesn't support wlr-layer-shell, so the cursor can't be hidden")
+    }
+}
+
+impl Error for NoLayerShell {}
 
 pub struct Overlay {
     conn: Connection,
@@ -51,11 +79,20 @@ struct State {
     layer_shell: ZwlrLayerShellV1,
     viewporter: Option<wp_viewporter::WpViewporter>,
     cursor_shape: Option<WpCursorShapeManagerV1>,
+    virtual_pointers: Option<ZwlrVirtualPointerManagerV1>,
+    /// Created the first time a nudge is needed.
+    nudger: Option<ZwlrVirtualPointerV1>,
+    /// For the timestamps of the nudges.
+    started: Instant,
     /// 1x1 transparent buffer, stretched over each output with a viewport.
     pixel: Option<wl_buffer::WlBuffer>,
     outputs: Vec<Output>,
     seats: Vec<Seat>,
     hidden: bool,
+    /// Whether the pointer entered an overlay since we hid the cursor.
+    entered: bool,
+    /// A button was pressed on the overlay; it goes once it is released.
+    releasing: bool,
     /// Set when the pointer moved over the overlay; reported to the main loop.
     pointer_activity: bool,
 }
@@ -100,12 +137,10 @@ impl Overlay {
         let compositor =
             globals.bind(&qh, 1..=4, ()).map_err(|_| "compositor has no wl_compositor")?;
         let shm = globals.bind(&qh, 1..=1, ()).map_err(|_| "compositor has no wl_shm")?;
-        let layer_shell = globals.bind(&qh, 1..=4, ()).map_err(|_| {
-            "compositor doesn't support wlr-layer-shell (Weston doesn't), \
-             so the cursor can't be hidden"
-        })?;
+        let layer_shell = globals.bind(&qh, 1..=4, ()).map_err(|_| NoLayerShell)?;
         let viewporter = globals.bind(&qh, 1..=1, ()).ok();
         let cursor_shape = globals.bind(&qh, 1..=1, ()).ok();
+        let virtual_pointers = globals.bind(&qh, 1..=2, ()).ok();
 
         let mut state = State {
             qh: qh.clone(),
@@ -114,10 +149,15 @@ impl Overlay {
             layer_shell,
             viewporter,
             cursor_shape,
+            virtual_pointers,
+            nudger: None,
+            started: Instant::now(),
             pixel: None,
             outputs: Vec::new(),
             seats: Vec::new(),
             hidden: false,
+            entered: false,
+            releasing: false,
             pointer_activity: false,
         };
         if state.viewporter.is_some() {
@@ -220,6 +260,8 @@ impl State {
         }
         debug!("hiding cursor");
         self.hidden = true;
+        self.entered = false;
+        self.releasing = false;
         for i in 0..self.outputs.len() {
             self.cover(i);
         }
@@ -231,15 +273,40 @@ impl State {
         }
         debug!("showing cursor");
         self.hidden = false;
+        self.releasing = false;
+        self.default_cursor();
         for p in self.seats.iter_mut().filter_map(|s| s.pointer.as_mut()) {
-            if let (Some(shape), Some((serial, ..))) = (&p.shape, p.enter.take()) {
-                shape.set_shape(serial, Shape::Default);
-            }
+            p.enter = None;
         }
         for out in &mut self.outputs {
             if let Some(cover) = out.cover.take() {
                 cover.destroy();
             }
+        }
+    }
+
+    /// Shows the default cursor on the overlay, so that it is visible even
+    /// before the window underneath sets its own.
+    fn default_cursor(&self) {
+        for p in self.seats.iter().filter_map(|s| s.pointer.as_ref()) {
+            if let (Some(shape), Some((serial, ..))) = (&p.shape, p.enter) {
+                shape.set_shape(serial, Shape::Default);
+            }
+        }
+    }
+
+    /// Moves the pointer by nothing, which makes compositors that don't do it
+    /// by themselves give pointer focus to the overlay that is now under it.
+    fn nudge(&mut self) {
+        if self.nudger.is_none()
+            && let (Some(manager), Some(seat)) = (&self.virtual_pointers, self.seats.first())
+        {
+            self.nudger = Some(manager.create_virtual_pointer(Some(&seat.wl), &self.qh, ()));
+        }
+        if let Some(nudger) = &self.nudger {
+            debug!("nudging the pointer onto the overlay");
+            nudger.motion(self.started.elapsed().as_millis() as u32, 0.0, 0.0);
+            nudger.frame();
         }
     }
 
@@ -303,6 +370,9 @@ impl State {
         cover.surface.attach(buffer, 0, 0);
         cover.surface.damage(0, 0, i32::MAX, i32::MAX);
         cover.surface.commit();
+        if self.hidden && !self.entered {
+            self.nudge();
+        }
     }
 
     fn closed(&mut self, layer: &ZwlrLayerSurfaceV1) {
@@ -427,6 +497,7 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
             wl_pointer::Event::Enter { .. } if !state.hidden => {}
             wl_pointer::Event::Enter { serial, surface_x, surface_y, .. } => {
                 pointer.set_cursor(serial, None, 0, 0);
+                state.entered = true;
                 if let Some(p) = state.pointer(pointer) {
                     p.enter = Some((serial, surface_x, surface_y));
                 }
@@ -436,6 +507,8 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                     p.enter = None;
                 }
             }
+            // While a button is down, wait for its release instead.
+            wl_pointer::Event::Motion { .. } if state.releasing => {}
             wl_pointer::Event::Motion { surface_x, surface_y, .. } => {
                 let moved = state
                     .pointer(pointer)
@@ -448,8 +521,16 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
             wl_pointer::Event::Button {
                 state: WEnum::Value(wl_pointer::ButtonState::Pressed),
                 ..
+            } if state.hidden => {
+                state.pointer_activity = true;
+                state.releasing = true;
+                state.default_cursor();
             }
-            | wl_pointer::Event::Axis { .. } => state.pointer_moved(),
+            wl_pointer::Event::Button {
+                state: WEnum::Value(wl_pointer::ButtonState::Released),
+                ..
+            } if state.releasing => state.pointer_moved(),
+            wl_pointer::Event::Axis { .. } => state.pointer_moved(),
             _ => {}
         }
     }
@@ -481,6 +562,8 @@ delegate_noop!(State: wp_viewporter::WpViewporter);
 delegate_noop!(State: wp_viewport::WpViewport);
 delegate_noop!(State: WpCursorShapeManagerV1);
 delegate_noop!(State: WpCursorShapeDeviceV1);
+delegate_noop!(State: ZwlrVirtualPointerManagerV1);
+delegate_noop!(State: ZwlrVirtualPointerV1);
 delegate_noop!(State: ignore wl_shm::WlShm);
 delegate_noop!(State: ignore wl_output::WlOutput);
 delegate_noop!(State: ignore wl_surface::WlSurface);

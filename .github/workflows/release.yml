@@ -1,5 +1,5 @@
-# On a version tag: build static .debs, attach them to a GitHub release and
-# publish the signed APT repository to the gh-pages branch.
+# On a version tag: test, build static .debs, attach them to a GitHub release
+# and publish the signed APT repository to the gh-pages branch.
 name: Release
 
 on:
@@ -7,13 +7,25 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release
 
 jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
   deb:
+    needs: test
     strategy:
       matrix:
         include:
@@ -43,14 +55,38 @@ jobs:
   publish:
     needs: deb
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          # All tags, to tell whether this is the newest release.
+          fetch-depth: 0
       - uses: actions/download-artifact@v8
         with:
           pattern: deb-*
           merge-multiple: true
           path: debs
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" debs/*.deb --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" debs/*.deb --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+      - name: Check that this is the newest release
+        id: newest
+        run: |
+          newest=$(git tag --list 'v*' --sort=-version:refname | head -n 1)
+          if [ "$newest" = "$GITHUB_REF_NAME" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$GITHUB_REF_NAME is older than $newest, so the APT repository stays as it is"
+          fi
       - name: Import the signing key
+        if: steps.newest.outputs.publish == 'true'
         env:
           APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
         run: |
@@ -63,12 +99,25 @@ jobs:
             echo "::error::APT_SIGNING_KEY must be an armored private key"
             exit 1
           fi
-      - run: packaging/apt/build-repo.sh debs site
-      - name: Create the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" debs/*.deb --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Keep the packages already published
+        if: steps.newest.outputs.publish == 'true'
+        run: |
+          # Older versions stay downloadable, also by clients that still have
+          # the previous index while Pages updates.
+          if git fetch --quiet origin gh-pages; then
+            mkdir -p old
+            git archive FETCH_HEAD pool | tar -x -C old || true
+            for deb in old/pool/main/*.deb; do
+              if [ -e "$deb" ] && [ ! -e "debs/${deb##*/}" ]; then
+                cp "$deb" debs/
+              fi
+            done
+          fi
+      - name: Build the APT repository
+        if: steps.newest.outputs.publish == 'true'
+        run: packaging/apt/build-repo.sh debs site
       - name: Publish the APT repository
+        if: steps.newest.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
