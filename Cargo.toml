@@ -31,7 +31,7 @@ wbanish hides the mouse cursor when a key is pressed, and shows it again \
 when the mouse is moved, a button is pressed or the wheel is scrolled. \
 It is a Wayland counterpart of xbanish. It works on GNOME through its \
 bundled GNOME Shell extension, and on compositors that implement the \
-wlr-layer-shell protocol. The user has to be in the "input" group."""
+wlr-layer-shell protocol, where the user has to be in the "input" group."""
 assets = [
     ["target/release/wbanish", "usr/bin/", "755"],
     ["wbanish.1", "usr/share/man/man1/", "644"],

@@ -20,9 +20,9 @@ On GNOME,
 .Nm
 hides the cursor through its GNOME Shell extension,
 .Ic wbanish@ksobitov.github.io ,
-which it enables by itself.
-Elsewhere the compositor must support the wlr-layer-shell protocol.
-Either way the user must be able to read the keyboards in
+which it enables by itself and which also notices the key presses.
+Elsewhere the compositor must support the wlr-layer-shell protocol, and
+the user must be able to read the keyboards in
 .Pa /dev/input ,
 usually by being in the
 .Ic input

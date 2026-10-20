@@ -1,26 +1,23 @@
 //! Hiding the cursor on GNOME, through the bundled Shell extension.
 //!
-//! GNOME has no wlr-layer-shell and no other way for a client to hide the
-//! cursor, so the wbanish extension does it inside gnome-shell.  We send it
-//! "hide" and "show" lines over $XDG_RUNTIME_DIR/wbanish.sock; it shows the
-//! cursor again by itself as soon as the pointer moves.
+//! GNOME lets a Wayland client neither hide the cursor nor see keys typed
+//! into other clients, so the wbanish extension does both inside
+//! gnome-shell.  We only start it with our options over
+//! $XDG_RUNTIME_DIR/wbanish.sock and keep the connection open; it stops
+//! when we go away.  This needs neither /dev/input nor the input group.
 
-use std::io::{self, Write};
+use std::error::Error;
+use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
-pub const UUID: &str = "wbanish@ksobitov.github.io";
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
 
-pub struct Gnome {
-    path: PathBuf,
-    stream: Option<UnixStream>,
-    /// Whether we asked for the cursor to be hidden and the mouse hasn't
-    /// moved since, as far as we know.
-    hidden: bool,
-    warned: bool,
-}
+use crate::input::Mods;
+
+pub const UUID: &str = "wbanish@ksobitov.github.io";
 
 fn socket_path() -> Option<PathBuf> {
     std::env::var_os("XDG_RUNTIME_DIR").map(|d| PathBuf::from(d).join("wbanish.sock"))
@@ -32,16 +29,23 @@ pub fn is_session() -> bool {
         || socket_path().is_some_and(|p| p.exists())
 }
 
-impl Gnome {
-    pub fn connect() -> Result<Self, String> {
-        let path = socket_path().ok_or("XDG_RUNTIME_DIR is not set")?;
-        let mut gnome = Gnome { path, stream: None, hidden: false, warned: false };
-        if gnome.reconnect() {
-            return Ok(gnome);
-        }
+fn connect(path: &PathBuf) -> Option<UnixStream> {
+    UnixStream::connect(path).inspect_err(|e| debug!("{}: {e}", path.display())).ok()
+}
 
+/// Runs until killed, with SIGUSR1 arriving on `pause`.
+pub fn run(
+    ignore: Mods,
+    timeout: Option<Duration>,
+    mut pause: UnixStream,
+) -> Result<(), Box<dyn Error>> {
+    let path = socket_path().ok_or("XDG_RUNTIME_DIR is not set")?;
+    let start = format!("start {} {}\n", ignore.names(), timeout.map_or(0, |t| t.as_millis()));
+
+    let mut stream = connect(&path);
+    if stream.is_none() {
         // This starts the extension right away if gnome-shell already knows
-        // about it, that is, if it was installed before the session began.
+        // about it, that is, if it was installed before this session began.
         debug!("enabling the {UUID} GNOME Shell extension");
         match Command::new("gnome-extensions").args(["enable", UUID]).status() {
             Ok(s) if s.success() => {}
@@ -50,77 +54,44 @@ impl Gnome {
         }
         for _ in 0..30 {
             std::thread::sleep(Duration::from_millis(100));
-            if gnome.reconnect() {
-                return Ok(gnome);
-            }
-        }
-        gnome.warn();
-        Ok(gnome)
-    }
-
-    fn reconnect(&mut self) -> bool {
-        match UnixStream::connect(&self.path).and_then(|s| s.set_nonblocking(true).map(|()| s)) {
-            Ok(s) => {
-                debug!("connected to the GNOME Shell extension");
-                self.stream = Some(s);
-                self.warned = false;
-                true
-            }
-            Err(e) => {
-                debug!("{}: {e}", self.path.display());
-                false
+            stream = connect(&path);
+            if stream.is_some() {
+                break;
             }
         }
     }
+    let Some(mut stream) = stream else {
+        return Err(format!(
+            "the {UUID} GNOME Shell extension isn't running; GNOME Shell only \
+             finds newly installed extensions when you log in, so log out and \
+             back in once"
+        )
+        .into());
+    };
+    debug!("connected to the GNOME Shell extension");
+    stream.write_all(start.as_bytes())?;
 
-    fn warn(&mut self) {
-        if !self.warned {
-            eprintln!(
-                "wbanish: the {UUID} GNOME Shell extension isn't running; \
-                 if wbanish was just installed, log out and back in"
-            );
-            self.warned = true;
+    let mut paused = false;
+    loop {
+        let mut fds = [PollFd::new(&pause, PollFlags::IN), PollFd::new(&stream, PollFlags::IN)];
+        match poll(&mut fds, None::<&Timespec>) {
+            Ok(_) => {}
+            Err(rustix::io::Errno::INTR) => continue,
+            Err(e) => return Err(e.into()),
         }
-    }
+        let (signal, extension) = (fds[0].revents(), fds[1].revents());
 
-    fn send(&mut self, msg: &[u8]) {
-        if self.stream.is_none() && !self.reconnect() {
-            self.warn();
-            return;
+        if !signal.is_empty() {
+            let mut buf = [0u8; 64];
+            while matches!(pause.read(&mut buf), Ok(n) if n > 0) {}
+            paused = !paused;
+            eprintln!("wbanish: {}", if paused { "paused" } else { "resumed" });
+            let msg = if paused { "stop\n" } else { start.as_str() };
+            stream.write_all(msg.as_bytes())?;
         }
-        // On any error, including a full buffer, drop the connection rather
-        // than risk leaving half a line in it.
-        if let Err(e) = self.stream.as_mut().unwrap().write_all(msg) {
-            debug!("lost the GNOME Shell extension: {e}");
-            self.stream = None;
-            if e.kind() != io::ErrorKind::WouldBlock && self.reconnect() {
-                let _ = self.stream.as_mut().unwrap().write_all(msg);
-            }
+        // The extension never writes, so this means it went away.
+        if !extension.is_empty() {
+            return Err("the GNOME Shell extension was disabled".into());
         }
-    }
-
-    /// Asks for the cursor to be hidden; sent on every key press since we
-    /// can't see the extension showing it again.
-    pub fn hide(&mut self) {
-        if !self.hidden {
-            debug!("hiding cursor");
-        }
-        self.hidden = true;
-        self.send(b"hide\n");
-    }
-
-    pub fn show(&mut self) {
-        debug!("showing cursor");
-        self.hidden = false;
-        self.send(b"show\n");
-    }
-
-    pub fn is_hidden(&self) -> bool {
-        self.hidden
-    }
-
-    /// The extension brings the cursor back on motion by itself.
-    pub fn pointer_moved(&mut self) {
-        self.hidden = false;
     }
 }

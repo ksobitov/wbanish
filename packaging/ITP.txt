@@ -18,10 +18,10 @@ wbanish hides the mouse cursor when a key is pressed, and shows it again
 when the mouse is moved, a button is pressed or the wheel is scrolled. It
 is a Wayland counterpart of xbanish.
 
-On GNOME it hides the cursor through the GNOME Shell extension that comes
-with it; elsewhere it needs a compositor that implements the wlr-layer-shell
-protocol, such as labwc, river, Wayfire or KDE Plasma. Keyboards are read
-from /dev/input, so the user has to be in the "input" group.
+On GNOME it does this through the GNOME Shell extension that comes with it;
+elsewhere it needs a compositor that implements the wlr-layer-shell protocol,
+such as labwc, river, Wayfire or KDE Plasma, and reads keyboards from
+/dev/input, so the user has to be in the "input" group.
 
 Debian already has xbanish, unclutter and unclutter-xfixes, but all three
 only work on X11. A few compositors (Sway, Hyprland, niri, Plasma 6.2+) can

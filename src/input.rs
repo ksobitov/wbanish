@@ -52,6 +52,25 @@ impl Mods {
     pub fn intersects(self, other: Mods) -> bool {
         self.0 & other.0 != 0
     }
+
+    /// Comma-separated names, as the GNOME Shell extension takes them, or
+    /// "-" for none.
+    pub fn names(self) -> String {
+        let names: Vec<&str> = [
+            (Self::SHIFT, "shift"),
+            (Self::CONTROL, "control"),
+            (Self::ALT, "alt"),
+            (Self::SUPER, "super"),
+            (Self::ALTGR, "altgr"),
+            (Self::CAPSLOCK, "capslock"),
+            (Self::NUMLOCK, "numlock"),
+        ]
+        .into_iter()
+        .filter(|&(m, _)| self.intersects(m))
+        .map(|(_, name)| name)
+        .collect();
+        if names.is_empty() { "-".to_owned() } else { names.join(",") }
+    }
 }
 
 impl std::ops::BitOr for Mods {
@@ -410,6 +429,8 @@ mod tests {
         assert_eq!(Mods::parse("all"), Some(Mods::HELD));
         assert!(!Mods::HELD.intersects(Mods::LOCKS));
         assert_eq!(Mods::parse("mod3"), None);
+        assert_eq!(Mods::default().names(), "-");
+        assert_eq!((Mods::SUPER | Mods::SHIFT).names(), "shift,super");
     }
 
     #[test]

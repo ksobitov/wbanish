@@ -71,8 +71,13 @@ Elsewhere, build it with Cargo:
 cargo install --git https://github.com/ksobitov/wbanish
 ```
 
-wbanish reads keyboards from `/dev/input/event*`, so you have to be in the
-`input` group:
+On GNOME 46 or later, nothing else is needed: wbanish enables its GNOME
+Shell extension by itself, and the extension sees your key presses.
+GNOME Shell only looks for new extensions when you log in, though, so after
+installing wbanish for the first time, log out and back in once.
+
+Elsewhere, wbanish reads keyboards from `/dev/input/event*`, so you have to
+be in the `input` group:
 
 ```sh
 sudo usermod -aG input $USER
@@ -81,10 +86,6 @@ sudo usermod -aG input $USER
 Then log out and back in.
 Note that any program in that group can read every key you type; wbanish
 itself only looks at keys to track modifiers and never stores or prints them.
-
-On GNOME 46 or later, wbanish enables its extension by itself; if you
-installed it during the current session, log out and back in once so
-GNOME Shell finds the extension.
 
 Start it from your compositor's autostart, for example in labwc's
 `~/.config/labwc/autostart`:
@@ -111,14 +112,18 @@ These pointer events come from the compositor after libinput, so touchpad
 palm rejection and disable-while-typing still apply: a palm resting on the
 touchpad won't bring the cursor back.
 
-GNOME has no `wlr-layer-shell`, so there wbanish asks its GNOME Shell
-extension, `wbanish@ksobitov.github.io`, to hide the cursor, over the
-`$XDG_RUNTIME_DIR/wbanish.sock` socket.
-The extension hides it inside GNOME Shell and shows it again when the
-pointer moves; clicks and scrolling reach the window underneath as usual.
+GNOME has neither `wlr-layer-shell` nor any way for a client to see keys
+typed into other clients, so there the work happens in wbanish's GNOME Shell
+extension, `wbanish@ksobitov.github.io`.
+wbanish starts it with its options over `$XDG_RUNTIME_DIR/wbanish.sock` and
+keeps that connection open; the extension stops when wbanish exits.
+It notices key presses through Mutter's idle monitor, which sees every
+event before it reaches the focused window, hides the cursor inside GNOME
+Shell, and shows it again when the pointer moves.
+Clicks and scrolling reach the window underneath as usual.
 
-Keyboards are read from evdev because a Wayland client can't see keys typed
-into other clients.
+Outside GNOME, keyboards are read from evdev because a Wayland client
+can't see keys typed into other clients.
 Mice and touchpads are only opened with `-t`, to know when they were last
 used.
 
