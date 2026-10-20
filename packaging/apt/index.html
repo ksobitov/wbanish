@@ -16,7 +16,8 @@
 Source and documentation: <a href="https://github.com/ksobitov/wbanish">github.com/ksobitov/wbanish</a>.</p>
 
 <h2>Install on Debian or Ubuntu</h2>
-<pre>sudo install -d -m 0755 /etc/apt/keyrings
+<pre>sudo apt install -y curl
+sudo install -d -m 0755 /etc/apt/keyrings
 sudo curl -fsSLo /etc/apt/keyrings/wbanish.asc https://ksobitov.github.io/wbanish/wbanish.asc
 sudo tee /etc/apt/sources.list.d/wbanish.sources &lt;&lt;EOF
 Types: deb

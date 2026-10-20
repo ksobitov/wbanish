@@ -46,6 +46,7 @@ Super+drag keep working.
 On Debian 12+ and Ubuntu 22.04+, add the APT repository once:
 
 ```sh
+sudo apt install -y curl
 sudo install -d -m 0755 /etc/apt/keyrings
 sudo curl -fsSLo /etc/apt/keyrings/wbanish.asc https://ksobitov.github.io/wbanish/wbanish.asc
 sudo tee /etc/apt/sources.list.d/wbanish.sources <<EOF
