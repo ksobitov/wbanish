@@ -71,6 +71,17 @@ pub fn run(
     debug!("connected to the GNOME Shell extension");
     stream.write_all(start.as_bytes())?;
 
+    // An extension that doesn't answer is from an older wbanish, still
+    // loaded because GNOME Shell only reloads extensions at login.
+    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+    let mut reply = [0u8; 3];
+    if stream.read_exact(&mut reply).is_err() || &reply != b"ok\n" {
+        return Err("the running GNOME Shell extension is older than wbanish; \
+                    log out and back in once to load the new one"
+            .into());
+    }
+    stream.set_read_timeout(None)?;
+
     let mut paused = false;
     loop {
         let mut fds = [PollFd::new(&pause, PollFlags::IN), PollFd::new(&stream, PollFlags::IN)];
@@ -89,9 +100,12 @@ pub fn run(
             let msg = if paused { "stop\n" } else { start.as_str() };
             stream.write_all(msg.as_bytes())?;
         }
-        // The extension never writes, so this means it went away.
+        // Only the "ok" for a resume, unless the extension went away.
         if !extension.is_empty() {
-            return Err("the GNOME Shell extension was disabled".into());
+            let mut buf = [0u8; 64];
+            if matches!(stream.read(&mut buf), Ok(0) | Err(_)) {
+                return Err("the GNOME Shell extension was disabled".into());
+            }
         }
     }
 }

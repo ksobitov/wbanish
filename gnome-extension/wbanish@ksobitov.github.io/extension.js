@@ -2,7 +2,8 @@
 //
 // GNOME doesn't let Wayland clients hide the cursor, or see keys typed into
 // other clients, so this has to run inside gnome-shell.  wbanish connects to
-// $XDG_RUNTIME_DIR/wbanish.sock and sends "start MODIFIERS TIMEOUT_MS"; while
+// $XDG_RUNTIME_DIR/wbanish.sock and sends "start MODIFIERS TIMEOUT_MS", which
+// is answered with "ok"; while
 // it stays connected, key presses hide the cursor and moving the pointer
 // shows it again.  "stop", or closing the connection, turns that off.
 
@@ -102,9 +103,15 @@ export default class WbanishExtension extends Extension {
                 return;
             }
             const [command, ...args] = line.split(' ');
-            if (command === 'start')
+            if (command === 'start') {
                 this._start(connection, ...args);
-            else if (command === 'stop' && this._owner === connection)
+                // Tells wbanish this extension is new enough to know "start".
+                try {
+                    connection.get_output_stream().write_all(new TextEncoder().encode('ok\n'), null);
+                } catch {
+                    // wbanish went away; the next read notices.
+                }
+            } else if (command === 'stop' && this._owner === connection)
                 this._stop();
             readLine();
         });
