@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wbanish APT repository</title>
+<style>
+	:root { color-scheme: light dark; }
+	body { font: 16px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+	pre { background: #8881; padding: 1rem; overflow-x: auto; border-radius: 6px; }
+</style>
+</head>
+<body>
+<h1>wbanish</h1>
+<p>Hides the mouse cursor while typing on Wayland, like xbanish.
+Source and documentation: <a href="https://github.com/ksobitov/wbanish">github.com/ksobitov/wbanish</a>.</p>
+
+<h2>Install on Debian or Ubuntu</h2>
+<pre>sudo apt install -y curl
+sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSLo /etc/apt/keyrings/wbanish.asc https://ksobitov.github.io/wbanish/wbanish.asc
+sudo chmod 644 /etc/apt/keyrings/wbanish.asc
+sudo tee /etc/apt/sources.list.d/wbanish.sources &lt;&lt;EOF
+Types: deb
+URIs: https://ksobitov.github.io/wbanish
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/wbanish.asc
+EOF
+sudo apt update
+sudo apt install wbanish</pre>
+
+<p>The repository is signed with the key
+<code>035B 17F4 3B9A A0B0 25D2 4DE5 DA38 B63C 9450 3CEB</code>.</p>
+
+<p>On GNOME, log out and back in once after installing, so that GNOME Shell
+finds wbanish's extension. On other desktops, wbanish reads keyboards from
+<code>/dev/input</code>, so add yourself to the <code>input</code> group and
+log in again:</p>
+<pre>sudo usermod -aG input $USER</pre>
+</body>
+</html>

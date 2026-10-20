@@ -1,0 +1,44 @@
+Package: wbanish
+Architecture: amd64
+Version: 0.3.0-1
+Priority: optional
+Section: utils
+Maintainer: Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>
+Installed-Size: 850
+Depends:
+Filename: pool/main/wbanish_0.3.0-1_amd64.deb
+Size: 336528
+MD5sum: 3814382631f67e88cfb80205db791e24
+SHA1: c6ce8cc61074fc3f29d2ab77e51d37c9b4fb0c89
+SHA256: 903dfeffc158be04978b89ddb02ce29493d7d520d2f9afb6d933846d072f9157
+SHA512: 2392ceeea4fa7761db5552b76b0e86c32a80ee9fee9a45e6b4188b1fa98c1893a374525257e5a00d4832d6070949807ce4c6c0e3cbb76cfd3cc91e09dd3383c6
+Homepage: https://github.com/ksobitov/wbanish
+Description: Hide the mouse cursor while typing on Wayland, like xbanish
+ wbanish hides the mouse cursor when a key is pressed, and shows it again when
+ the mouse is moved, a button is pressed or the wheel is scrolled. It is a
+ Wayland counterpart of xbanish. It works on GNOME through its bundled GNOME
+ Shell extension, and on compositors that implement the wlr-layer-shell
+ protocol, where the user has to be in the "input" group.
+
+Package: wbanish
+Architecture: amd64
+Version: 0.4.0-1
+Priority: optional
+Section: utils
+Maintainer: Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>
+Installed-Size: 942
+Depends:
+Filename: pool/main/wbanish_0.4.0-1_amd64.deb
+Size: 356504
+MD5sum: 98b16ef0f051b39bf02f41f64a4d48f7
+SHA1: 8b8bb431274a9d503c3e828c3b20d89f957cfc96
+SHA256: 0a0a33328c3992804de8be5f66fcd260fbb49a5ca119c08d010c0d12f195b407
+SHA512: ea9f2eb13366d385c691a97ad7fda532e42a0c0c9d9f76a39716f7f1a6f9b2dfbaa251230e779b5c9b68091b0472bb00f84d0ed866ac4775e98707d4b0015cf6
+Homepage: https://github.com/ksobitov/wbanish
+Description: Hide the mouse cursor while typing on Wayland, like xbanish
+ wbanish hides the mouse cursor when a key is pressed, and shows it again when
+ the mouse is moved, a button is pressed or the wheel is scrolled. It is a
+ Wayland counterpart of xbanish. It works on GNOME through its bundled GNOME
+ Shell extension, and on compositors that implement the wlr-layer-shell
+ protocol, where the user has to be in the "input" group.
+
