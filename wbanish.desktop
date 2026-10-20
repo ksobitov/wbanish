@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=wbanish
+Comment=Hide the mouse cursor while typing
+Exec=wbanish
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

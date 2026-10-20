@@ -70,6 +70,17 @@ have passed without mouse activity.
 Pause, or resume if paused.
 While paused the cursor is never hidden.
 .El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/xdg/autostart/wbanish.desktop
+Starts
+.Nm
+when you log in.
+.It Pa $XDG_RUNTIME_DIR/wbanish.lock
+Keeps a second
+.Nm
+from running.
+.El
 .Sh SEE ALSO
 .Xr xbanish 1
 .Sh CAVEATS

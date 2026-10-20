@@ -1,6 +1,6 @@
 [package]
 name = "wbanish"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Hide the mouse cursor while typing on Wayland, like xbanish"
@@ -36,6 +36,7 @@ assets = [
     ["target/release/wbanish", "usr/bin/", "755"],
     ["wbanish.1", "usr/share/man/man1/", "644"],
     ["README.md", "usr/share/doc/wbanish/", "644"],
+    ["wbanish.desktop", "etc/xdg/autostart/", "644"],
     ["gnome-extension/wbanish@ksobitov.github.io/*", "usr/share/gnome-shell/extensions/wbanish@ksobitov.github.io/", "644"],
 ]
 

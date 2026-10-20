@@ -1,13 +1,16 @@
 //! wbanish: hide the mouse cursor while typing on Wayland, like xbanish.
 
 use std::error::Error;
+use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use rustix::event::{PollFd, PollFlags, Timespec, poll};
+use rustix::fs::{FlockOperation, flock};
 
 static DEBUG: AtomicBool = AtomicBool::new(false);
 
@@ -102,7 +105,26 @@ fn main() -> ExitCode {
     }
 }
 
+/// Locks $XDG_RUNTIME_DIR/wbanish.lock for as long as the returned file is
+/// open, so that a second wbanish, say one started by hand next to the
+/// autostarted one, exits instead of fighting over the cursor.
+fn lock() -> Result<File, Box<dyn Error>> {
+    let dir = std::env::var_os("XDG_RUNTIME_DIR").ok_or("XDG_RUNTIME_DIR is not set")?;
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(Path::new(&dir).join("wbanish.lock"))?;
+    match flock(&file, FlockOperation::NonBlockingLockExclusive) {
+        Ok(()) => Ok(file),
+        Err(rustix::io::Errno::WOULDBLOCK) => Err("wbanish is already running".into()),
+        Err(e) => Err(e.into()),
+    }
+}
+
 fn run(opts: &Options) -> Result<(), Box<dyn Error>> {
+    let _lock = lock()?;
+
     // SIGUSR1 pauses and resumes, e.g. for games.
     let (mut sig_rx, sig_tx) = UnixStream::pair()?;
     sig_rx.set_nonblocking(true)?;

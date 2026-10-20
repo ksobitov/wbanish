@@ -87,12 +87,19 @@ Then log out and back in.
 Note that any program in that group can read every key you type; wbanish
 itself only looks at keys to track modifiers and never stores or prints them.
 
-Start it from your compositor's autostart, for example in labwc's
+The package starts wbanish whenever you log in, through
+`/etc/xdg/autostart/wbanish.desktop`, on desktops that follow the XDG
+autostart convention, such as GNOME and KDE Plasma.
+To pass options, or to turn that off, copy the file to
+`~/.config/autostart/` and change its `Exec=` line, or add `Hidden=true`.
+Elsewhere, start it from your compositor's autostart, for example in labwc's
 `~/.config/labwc/autostart`:
 
 ```sh
 wbanish &
 ```
+
+Only one wbanish runs at a time; another one exits right away.
 
 ## How it works
 
