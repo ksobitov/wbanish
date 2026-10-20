@@ -1,0 +1,75 @@
+.Dd $Mdocdate: October 20 2026$
+.Dt WBANISH 1
+.Os
+.Sh NAME
+.Nm wbanish
+.Nd hide the Wayland mouse cursor when a key is pressed
+.Sh SYNOPSIS
+.Nm
+.Op Fl d
+.Op Fl i Ar modifier
+.Op Fl t Ar seconds
+.Sh DESCRIPTION
+.Nm
+hides the mouse cursor when a key is pressed.
+The cursor is shown again when the mouse is moved, a button is pressed or
+the wheel is scrolled.
+Pressing a modifier key on its own does not hide the cursor.
+.Pp
+The compositor must support the wlr-layer-shell protocol, and the user must
+be able to read the keyboards in
+.Pa /dev/input ,
+usually by being in the
+.Ic input
+group.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl d
+Print debugging messages to stderr.
+.It Fl i Ar modifier
+Ignore pressed key if
+.Ar modifier
+is used.
+Modifiers are:
+.Ic shift ,
+.Ic control
+or
+.Ic ctrl ,
+.Ic alt
+or
+.Ic mod1 ,
+.Ic super
+or
+.Ic mod4 ,
+.Ic altgr
+or
+.Ic mod5 ,
+.Ic capslock
+or
+.Ic lock ,
+.Ic numlock
+or
+.Ic mod2 ,
+and
+.Ic all ,
+which means every held modifier but not CapsLock or NumLock.
+May be given more than once.
+.It Fl t Ar seconds
+Hide the mouse cursor after
+.Ar seconds
+have passed without mouse activity.
+.El
+.Sh SIGNALS
+.Bl -tag -width Ds
+.It Dv SIGUSR1
+Pause, or resume if paused.
+While paused the cursor is never hidden.
+.El
+.Sh SEE ALSO
+.Xr xbanish 1
+.Sh CAVEATS
+To hide the cursor,
+.Nm
+covers every output with a transparent surface.
+A click or scroll that brings the cursor back is therefore not passed on to
+the window underneath.

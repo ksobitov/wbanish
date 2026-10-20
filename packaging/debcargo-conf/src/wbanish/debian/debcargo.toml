@@ -1,0 +1,18 @@
+overlay = "."
+uploaders = ["Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>"]
+collapse_features = true
+
+[source]
+section = "utils"
+
+[packages.bin]
+summary = "hide the mouse cursor while typing on Wayland"
+description = """
+wbanish hides the mouse cursor when a key is pressed, and shows it again
+when the mouse is moved, a button is pressed or the wheel is scrolled. It
+is a Wayland counterpart of xbanish.
+.
+It needs a compositor that implements the wlr-layer-shell protocol, such as
+labwc, river, Wayfire or KDE Plasma; it does not work on GNOME. Keyboards
+are read from /dev/input, so the user has to be in the "input" group.
+"""

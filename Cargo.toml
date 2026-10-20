@@ -1,0 +1,44 @@
+[package]
+name = "wbanish"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Hide the mouse cursor while typing on Wayland, like xbanish"
+license = "MIT"
+repository = "https://github.com/ksobitov/wbanish"
+homepage = "https://github.com/ksobitov/wbanish"
+readme = "README.md"
+keywords = ["wayland", "cursor", "xbanish", "unclutter"]
+categories = ["command-line-utilities"]
+exclude = ["/packaging"]
+
+[dependencies]
+evdev = "0.13.2"
+rustix = { version = "1.1.4", features = ["event", "fs"] }
+signal-hook = { version = "0.4.4", default-features = false }
+wayland-client = "0.31.15"
+wayland-protocols = { version = "0.32.13", features = ["client", "staging", "unstable"] }
+wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }
+
+[package.metadata.deb]
+maintainer = "Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>"
+copyright = "2026 Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>"
+license-file = ["LICENSE", "0"]
+section = "utils"
+depends = "$auto"
+extended-description = """\
+wbanish hides the mouse cursor when a key is pressed, and shows it again \
+when the mouse is moved, a button is pressed or the wheel is scrolled. \
+It is a Wayland counterpart of xbanish. It needs a compositor that \
+implements the wlr-layer-shell protocol, and the user has to be in the \
+"input" group."""
+assets = [
+    ["target/release/wbanish", "usr/bin/", "755"],
+    ["wbanish.1", "usr/share/man/man1/", "644"],
+    ["README.md", "usr/share/doc/wbanish/", "644"],
+]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
