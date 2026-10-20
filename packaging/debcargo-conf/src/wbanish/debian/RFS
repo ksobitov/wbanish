@@ -1,4 +1,4 @@
-wbanish 0.2.0: new package, ITP #NNNNNN
+wbanish 0.2.1: new package, ITP #NNNNNN
 
 wbanish hides the mouse cursor while typing on Wayland, like xbanish does
 on X11. It is a binary-only crate; the binary package is "wbanish".

@@ -7,7 +7,7 @@ Owner: Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>
 X-Debbugs-Cc: debian-devel@lists.debian.org, debian-rust@lists.debian.org
 
 * Package name    : wbanish
-  Version         : 0.2.0
+  Version         : 0.2.1
   Upstream Contact: Komiljon Sobitov <komiljon.sobitov.uzb@gmail.com>
 * URL             : https://github.com/ksobitov/wbanish
 * License         : MIT
